@@ -1,0 +1,23 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+django = "*"
+pillow = "*"
+djangorestframework = "*"
+mysqlclient = "*"
+django-q = "*"
+croniter = "*"
+djangorestframework-xml = "*"
+django-filter = "*"
+djoser = "*"
+drf-yasg = {extras = ["validation"], version = "*"}
+
+[dev-packages]
+autopep8 = "*"
+django-silk = "*"
+
+[requires]
+python_version = "3.10"
