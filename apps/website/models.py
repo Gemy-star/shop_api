@@ -49,3 +49,5 @@ class OrderItem(models.Model):
 
     class Meta:
         unique_together = ('menuitem', 'order')
+
+

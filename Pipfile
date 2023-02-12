@@ -14,6 +14,7 @@ djangorestframework-xml = "*"
 django-filter = "*"
 djoser = "*"
 drf-yasg = {extras = ["validation"], version = "*"}
+django-silk = "*"
 
 [dev-packages]
 autopep8 = "*"

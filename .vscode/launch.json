@@ -11,7 +11,7 @@
             "program": "${workspaceFolder}\\manage.py",
             "args": [
                 "runserver",
-                "4785"
+                "4883"
             ],
             "django": true,
             "justMyCode": true

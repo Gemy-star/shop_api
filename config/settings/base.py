@@ -226,3 +226,7 @@ REST_FRAMEWORK = {
 DJOSER = {
     "USER_ID_FIELD": "username",
 }
+
+
+LOGIN_URL = '/admin'
+REDIRECT_URL = '/'
