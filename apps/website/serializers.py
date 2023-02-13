@@ -1,8 +1,10 @@
 from rest_framework import serializers
 from apps.website.models import *
+from django.contrib.auth import models
 from decimal import Decimal
-
-
+from rest_framework.validators import UniqueValidator
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.models import Group, User
 # class CustomerSerializer(serializers.ModelSerializer):
 #     line = serializers.IntegerField(source='phone')
 
@@ -11,12 +13,83 @@ from decimal import Decimal
 #         fields = ['name', 'email', 'line']
 
 
+class UserManagementSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(
+        required=True,
+        validators=[UniqueValidator(
+            queryset=Group.objects.get(name='Manager').user_set.all())]
+    )
+    first_name = serializers.ReadOnlyField()
+    last_name = serializers.ReadOnlyField()
+
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'last_name', 'first_name')
+        extra_kwargs = {
+            'username': {'required': True},
+        }
+
+    def create(self, validated_data):
+        user = User.objects.get(username=validated_data['username'],
+                                email=validated_data['email'])
+        if user.groups.filter(name='Manager').exists():
+            return user
+        else:
+            manager_group = Group.objects.get(name__icontains='Manager')
+            user.groups.add(manager_group)
+            user.save()
+            return user
+
+
+# #Create New User
+# class RegisterSerializer(serializers.ModelSerializer):
+#     email = serializers.EmailField(
+#             required=True,
+#             validators=[UniqueValidator(queryset=User.objects.all())]
+#             )
+
+#     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+#     password2 = serializers.CharField(write_only=True, required=True)
+
+#     class Meta:
+#         model = User
+#         fields = ('username', 'password', 'password2', 'email', 'first_name', 'last_name')
+#         extra_kwargs = {
+#             'first_name': {'required': True},
+#             'last_name': {'required': True}
+#         }
+
+#     def validate(self, attrs):
+#         if attrs['password'] != attrs['password2']:
+#             raise serializers.ValidationError({"password": "Password fields didn't match."})
+
+#         return attrs
+
+#     def create(self, validated_data):
+#         user = User.objects.create(
+#             username=validated_data['username'],
+#             email=validated_data['email'],
+#             first_name=validated_data['first_name'],
+#             last_name=validated_data['last_name']
+#         )
+
+
+#         user.set_password(validated_data['password'])
+#         user.save()
+
+#         return user
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'email', 'username']
+
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ['title', 'slug']
-
-
 # class ItemSerializer(serializers.ModelSerializer):
 #     avaliable_stock_items = serializers.IntegerField(source='inventory')
 #     category = CategorySerializer(read_only=True)

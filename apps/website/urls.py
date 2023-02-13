@@ -1,8 +1,7 @@
 from django.urls import path, include
 from django.urls import path
-from drf_yasg import openapi
 from drf_yasg.generators import OpenAPISchemaGenerator
-from rest_framework import permissions, routers
+from rest_framework import routers
 from apps.website.views import *
 
 
@@ -19,6 +18,10 @@ class OpenAPIHttpAndHttpsSchemaGenerator(OpenAPISchemaGenerator):
 router = routers.SimpleRouter()
 routes = [
     ("menu-items", ListViewSetMenuItem),
+    ("groups/manager/users", ManagerUserGroupManagement, 'manager-manage'),
+    ("groups/delivery-crew/users",
+     DeliveryCrewUserGroupManagement, 'delivery-crew-manage'),
+
 ]
 
 for route in routes:
