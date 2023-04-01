@@ -1,129 +1,113 @@
 from rest_framework.response import Response
 from apps.website.models import *
 from apps.website.serializers import *
-from rest_framework import generics, mixins, permissions, status, views, viewsets
-from rest_framework.exceptions import ValidationError
-from rest_framework.filters import OrderingFilter
+from rest_framework import status
 from drf_yasg.utils import swagger_auto_schema
 from apps.website.permissions import *
-#
+from apps.website.utils import *
+from django.contrib.auth.models import User
+from rest_framework.decorators import api_view, permission_classes, action
+from django.contrib.auth import authenticate
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from .permissions import *
+from rest_framework import viewsets
+from rest_framework.authentication import TokenAuthentication
 
 
-class ManagerUserGroupManagement(viewsets.GenericViewSet, mixins.CreateModelMixin, mixins.DestroyModelMixin):
-    queryset = User.objects.all()
-    serializer_class = UserManagementSerializer
-
-    def get_permissions(self):
-        """
-      Instantiates and returns the list of permissions that this view requires.
-        """
-        if self.action == 'list' or self.action == 'create' or self.action == 'destroy':
-            permission_classes = [ISMANAGERONLY]
-        else:
-            permission_classes = [IsAuthenticatedOrReadOnly]
-        return [permission() for permission in permission_classes]
-
-    @swagger_auto_schema(security=[], responses={200: UserManagementSerializer})
-    def list(self, request):
-        queryset = User.objects.filter(groups__name='Manager')
-        serializer = UserManagementSerializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    @swagger_auto_schema(security=[], responses={201: UserManagementSerializer})
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
-
-    @swagger_auto_schema(security=[], responses={204: UserManagementSerializer})
-    def destroy(self, request, *args, **kwargs):
-        from .utils import perform_destory_from_user_group
-        instance = self.get_object()
-        destroy_status = perform_destory_from_user_group(
-            group_name='Manager', user=instance)
-        if destroy_status:
-            return Response({'message': 'User have been removed from Group'}, status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response({'message': 'No User with that id found'}, status=status.HTTP_404_NOT_FOUND)
+@swagger_auto_schema(methods=['POST'], request_body=RegisterSerializer)
+@api_view(["POST"])
+@permission_classes((AllowAny,))
+def create_users(request):
+    register_serializer = RegisterSerializer(data=request.data)
+    if not register_serializer.is_valid():
+        return Response(register_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    user = User.objects.create_user(username=register_serializer.data['username'],
+                                    email=register_serializer.data['email'],
+                                    password=register_serializer.data['password'])
+    if not user:
+        return Response({'detail': 'Invalid Credentials or activate account'}, status=status.HTTP_404_NOT_FOUND)
+    user_Serializer = UserSerializer(user)
+    return Response({
+        'user': user_Serializer.data,
+    }, status=status.HTTP_200_OK)
 
 
-class DeliveryCrewUserGroupManagement(viewsets.GenericViewSet, mixins.CreateModelMixin, mixins.DestroyModelMixin):
-    queryset = User.objects.all()
-    serializer_class = UserManagementSerializer
+@swagger_auto_schema(methods=['POST'], request_body=UserSigninSerializer)
+@api_view(["POST"])
+@permission_classes((AllowAny,))
+def api_token_auth(request):
+    signin_serializer = UserSigninSerializer(data=request.data)
+    if not signin_serializer.is_valid():
+        return Response(signin_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def get_permissions(self):
-        """
-      Instantiates and returns the list of permissions that this view requires.
-        """
-        if self.action == 'list' or self.action == 'create' or self.action == 'destroy':
-            permission_classes = [ISMANAGERONLY]
-        else:
-            permission_classes = [IsAuthenticatedOrReadOnly]
-        return [permission() for permission in permission_classes]
+    user = authenticate(
+        username=signin_serializer.data['username'],
+        password=signin_serializer.data['password']
+    )
+    if not user:
+        return Response({'detail': 'Invalid Credentials or activate account'}, status=status.HTTP_404_NOT_FOUND)
 
-    @swagger_auto_schema(security=[], responses={200: UserManagementSerializer})
-    def list(self, request):
-        queryset = User.objects.filter(groups__name='Delivery Crew')
-        serializer = UserManagementSerializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    # TOKEN STUFF
+    token, _ = Token.objects.get_or_create(user=user)
 
-    @swagger_auto_schema(security=[], responses={201: UserManagementSerializer})
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
+    user_serialized = UserSerializer(user)
 
-    @swagger_auto_schema(security=[], responses={204: UserManagementSerializer})
-    def destroy(self, request, *args, **kwargs):
-        from .utils import perform_destory_from_user_group
-        instance = self.get_object()
-        destroy_status = perform_destory_from_user_group(
-            group_name='Delivery Crew', user=instance)
-        if destroy_status:
-            return Response({'message': 'User have been removed from Group'}, status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response({'message': 'No User with that id found'}, status=status.HTTP_404_NOT_FOUND)
-
-# READ ONLY FOR LIST and RETREIVE
+    return Response({
+        'user': user_serialized.data,
+        'token': token.key
+    }, status=status.HTTP_200_OK)
 
 
-class ListViewSetMenuItem(viewsets.ReadOnlyModelViewSet, mixins.CreateModelMixin, mixins.DestroyModelMixin, mixins.UpdateModelMixin):
+@swagger_auto_schema(methods=['GET'])
+@api_view(["GET"])
+@permission_classes((IsAuthenticated,))
+def user_info(request):
+    user_Serializer = UserSerializer(request.user)
+    if request.user:
+        return Response({
+            'user': user_Serializer.data,
+        }, status=status.HTTP_200_OK)
+    else:
+        return Response(user_Serializer.errors, status=status.HTTP_403_FORBIDDEN)
+
+
+class MenuItemViewset(viewsets.ModelViewSet):
     queryset = MenuItem.objects.all()
     serializer_class = MenuItemSerializer
+    authentication_classes = (TokenAuthentication,)
+
+    def initialize_request(self, request, *args, **kwargs):
+        self.action = self.action_map.get(request.method.lower())
+        return super().initialize_request(request, *args, **kwargs)
+
+    def get_authenticators(self):
+        if self.action == 'get_all_menu_items':
+            return []
+        else:
+            return super().get_authenticators()
 
     def get_permissions(self):
         """
       Instantiates and returns the list of permissions that this view requires.
         """
-        if self.action == 'list' or self.action == 'retrieve':
-            permission_classes = [IsAuthenticatedOrReadOnly]
+        if self.action == 'get_all_menu_items':
+            permission_classes = [AllowAny]
         else:
             permission_classes = [ISMANAGERONLY]
         return [permission() for permission in permission_classes]
 
-    @swagger_auto_schema(security=[], responses={200: MenuItemSerializer})
-    def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
+    @action(detail=False, methods=['get'], url_path='menu-items/')
+    def get_all_menu_items(self, request):
+        items = MenuItem.objects.all()
+        serialized_items = MenuItemSerializer(items, many=True)
+        return Response(serialized_items.data, status=status.HTTP_200_OK)
 
-    @swagger_auto_schema(security=[], responses={201: MenuItemSerializer})
-    def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
-
-    @swagger_auto_schema(security=[], responses={200: MenuItemSerializer})
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
-
-    @swagger_auto_schema(security=[], responses={200: MenuItemSerializer})
-    def destroy(self, request, *args, **kwargs):
-        return super().destroy(request, *args, **kwargs)
-
-    @swagger_auto_schema(security=[], responses={200: MenuItemSerializer})
-    def update(self, request, *args, **kwargs):
-        return super().update(request, *args, **kwargs)
-    # class ItemsView(generics.ListCreateAPIView):
-
-    #     queryset = Items.objects.all()
-    #     serializer_class = ItemSerializer
-    #     ordering_fields = ['name', 'category']
-    #     filterset_fields = ['name', 'category']
-    #     search_fields = ['category']
-
-    # class ItemView(generics.RetrieveUpdateDestroyAPIView):
-    #     queryset = Items.objects.all()
-    #     serializer_class = ItemSerializer
+    @action(detail=False, methods=['post'], url_path='menu-items/')
+    def post_menu_item(self, request):
+        item_serializer = MenuItemSerializer(data=request.data)
+        if not item_serializer.is_valid():
+            return Response(item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        item = MenuItem.objects.create(title=item_serializer.validated_data['title'], featured=item_serializer.validated_data['featured'], price=item_serializer.validated_data['price'],
+                                       category_id=item_serializer.validated_data['category_id'])
+        item_created = MenuItemSerializer(item)
+        return Response(item_created.data, status=status.HTTP_201_CREATED)

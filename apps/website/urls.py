@@ -1,8 +1,7 @@
+from apps.website.views import *
 from django.urls import path, include
-from django.urls import path
 from drf_yasg.generators import OpenAPISchemaGenerator
 from rest_framework import routers
-from apps.website.views import *
 
 
 class OpenAPIHttpAndHttpsSchemaGenerator(OpenAPISchemaGenerator):
@@ -10,27 +9,20 @@ class OpenAPIHttpAndHttpsSchemaGenerator(OpenAPISchemaGenerator):
         schema = super().get_schema(request, public)
         schema.schemes = (
             ["http"] if request.get_host().startswith(
-                "localhost") else ["https", "http"]
+                "127.0.0.1") else ["https", "http"]
         )
         return schema
 
 
-router = routers.SimpleRouter()
-routes = [
-    ("menu-items", ListViewSetMenuItem),
-    ("groups/manager/users", ManagerUserGroupManagement, 'manager-manage'),
-    ("groups/delivery-crew/users",
-     DeliveryCrewUserGroupManagement, 'delivery-crew-manage'),
+menu_items = MenuItemViewset.as_view({
+    'get': 'get_all_menu_items',
+    'post': 'post_menu_item'
+})
 
-]
+urlpatterns = [
+    path('users/users/me', user_info, name='get-token'),
+    path('users', create_users, name='create-users'),
+    path('token/login', api_token_auth, name='get-token'),
+    path('menu-items', menu_items, name='menu-items'),
 
-for route in routes:
-    route_name = route[0]
-    viewset = route[1]
-    basename = route[2] if len(route) > 2 else route[0]
-    router.register(route_name, viewset, basename=basename)
-
-urlpatterns = router.urls + [
-    path("", include("djoser.urls")),
-    path("", include("djoser.urls.authtoken")),
 ]

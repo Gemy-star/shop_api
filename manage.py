@@ -20,9 +20,9 @@ def main():
     if sys.argv[1] == "runserver":
         execute_from_command_line([sys.argv[0], "migrate"])
         from django.contrib.auth.models import Group
-        if Group.objects.all().count() == 0:
-            Group.objects.create('Manager')
-            Group.objects.create('Delivery Crew')
+        if Group.objects.count() == 0:
+            Group.objects.create(name='Manager')
+            Group.objects.create(name='Delivery Crew')
         from apps.scheduler.cluster import QCluster
         global q_cluster
         q_cluster = QCluster()
