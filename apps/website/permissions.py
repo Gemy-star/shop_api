@@ -23,9 +23,12 @@ class ISDELIVERYCREWORCUSTOMER(BasePermission):
     SAFE_METHODS = ["GET", "HEAD", "OPTIONS"]
 
     def has_permission(self, request, view) -> bool:
-        if request.method in self.SAFE_METHODS:
-            if is_in_group(
-                    request.user, 'Delivery crew') or request.user.groups.count() == 0:
+        token_json = request.META.get('HTTP_AUTHORIZATION', '')
+        token = token_json.split(' ')[1]
+        if token:
+            user = Token.objects.get(key=token)
+            if request.method in self.SAFE_METHODS and is_in_group(
+                    user.user, 'Delivery crew') or user.user.groups.count() == 0:
                 return True
             else:
                 return False
@@ -41,7 +44,8 @@ class ISDELIVERYCREW(BasePermission):
     SAFE_METHODS = ["GET", "HEAD", "OPTIONS", "POST"]
 
     def has_permission(self, request, view) -> bool:
-        token = request.META.get('HTTP_AUTHORIZATION', '')
+        token_json = request.META.get('HTTP_AUTHORIZATION', '')
+        token = token_json.split(' ')[1]
         if token:
             user = Token.objects.get(key=token)
             return (
@@ -61,7 +65,8 @@ class ISMANAGERONLY(BasePermission):
                     "PATCH", "DELETE",  "HEAD", "OPTIONS"]
 
     def has_permission(self, request, view) -> bool:
-        token = request.META.get('HTTP_AUTHORIZATION', '')
+        token_json = request.META.get('HTTP_AUTHORIZATION', '')
+        token = token_json.split(' ')[1]
         if token:
             user = Token.objects.get(key=token)
             return (
@@ -72,7 +77,7 @@ class ISMANAGERONLY(BasePermission):
             return False
 
 
-class IsHaveToken(BasePermission):
+class ISCUSTOMER(BasePermission):
     """
     The request is authenticated as a user, or is a read-only request.
     """
@@ -80,5 +85,12 @@ class IsHaveToken(BasePermission):
     SAFE_METHODS = ["GET", "POST", "DELETE",  "HEAD", "OPTIONS"]
 
     def has_permission(self, request, view) -> bool:
-        is_tokened = Token.objects.filter(user=request.user).exists()
-        return is_tokened
+        token_json = request.META.get('HTTP_AUTHORIZATION', '')
+        token = token_json.split(' ')[1]
+        if token:
+            user = Token.objects.get(key=token)
+            return (
+                request.method in self.SAFE_METHODS and user.user.groups.count() == 0
+            )
+        else:
+            return False

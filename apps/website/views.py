@@ -81,7 +81,7 @@ class MenuItemViewset(viewsets.ModelViewSet):
         return super().initialize_request(request, *args, **kwargs)
 
     def get_authenticators(self):
-        if self.action == 'get_all_menu_items':
+        if self.action == 'get_all_menu_items' or self.action == 'get_single_menu_items':
             return []
         else:
             return super().get_authenticators()
@@ -90,12 +90,20 @@ class MenuItemViewset(viewsets.ModelViewSet):
         """
       Instantiates and returns the list of permissions that this view requires.
         """
-        if self.action == 'get_all_menu_items':
-            permission_classes = [AllowAny]
+        if self.action == 'get_all_menu_items' or self.action == 'get_single_menu_items':
+            permission_classes = [ISDELIVERYCREWORCUSTOMER]
         else:
             permission_classes = [ISMANAGERONLY]
         return [permission() for permission in permission_classes]
-
+    @action(detail=True, methods=['get'], url_path='menu-items/')
+    def get_single_menu_items(self, request,menuItem=None):
+        try:
+            item = MenuItem.objects.get(pk=menuItem)
+            serialized_items = MenuItemSerializer(item)
+            return Response(serialized_items.data, status=status.HTTP_200_OK)
+        except Exception as ex:
+            return Response({"error":f"{str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
+            
     @action(detail=False, methods=['get'], url_path='menu-items/')
     def get_all_menu_items(self, request):
         items = MenuItem.objects.all()
@@ -111,3 +119,114 @@ class MenuItemViewset(viewsets.ModelViewSet):
                                        category_id=item_serializer.validated_data['category_id'])
         item_created = MenuItemSerializer(item)
         return Response(item_created.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['put'], url_path='menu-items/')
+    def put_menu_item(self, request,menuItem=None):
+        try:
+            item_serializer = MenuItemSerializer(data=request.data)
+            if not item_serializer.is_valid():
+               return Response(item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            item = MenuItem.objects.get(pk=menuItem)
+            item.title = item_serializer.validated_data['title']
+            item.featured = item_serializer.validated_data['featured']
+            item.price = item_serializer.validated_data['price']
+            item.category_id = item_serializer.validated_data['category_id']
+            item.save()
+            item_updated = MenuItemSerializer(item)
+            return Response(item_updated.data, status=status.HTTP_201_CREATED)
+        except Exception as ex:
+            return Response({"error":f"{str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=True, methods=['delete'], url_path='menu-items/')
+    def delete_menu_item(self, request,menuItem=None):
+        try:
+            item = MenuItem.objects.get(pk=menuItem)
+            item.delete()
+            return Response({"message":f"item with id:{menuItem} deleted"}, status=status.HTTP_200_OK)
+        except Exception as ex:
+            return Response({"error":f"{str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ManagerGroupViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = [ISMANAGERONLY,]
+
+    def initialize_request(self, request, *args, **kwargs):
+        self.action = self.action_map.get(request.method.lower())
+        return super().initialize_request(request, *args, **kwargs)
+    
+    @action(detail=False, methods=['get'], url_path='groups/manager/users/')
+    def get_all_managers(self, request):
+        users = User.objects.filter(groups__name='Manager')
+        serialized_users = UserSerializer(users, many=True)
+        return Response(serialized_users.data, status=status.HTTP_200_OK)
+    @action(detail=False, methods=['post'], url_path='groups/manager/users/')
+    def add_user_to_manager(self,request):
+        try:
+            user_serializer = UserSerializer(data=request.data)
+            if not user_serializer.is_valid():
+               return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            user = User.objects.get(username=user_serializer.validated_data['username'])
+            managers = Group.objects.get(name='Manager') 
+            managers.user_set.add(user)
+            managers.save()
+            user_json = UserSerializer(user)
+            return Response(user_json.data, status=status.HTTP_201_CREATED)
+        except Exception as ex:
+            return Response({"error":f"User Not Found :{str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
+        
+    @action(detail=True, methods=['delete'], url_path='groups/manager/users/')
+    def delete_user_from_manager(self, request,userId=None):
+        try:
+            user = User.objects.get(pk=userId)
+            managers = Group.objects.get(name='Manager') 
+            managers.user_set.remove(user)
+            return Response({"message":f"User with id:{userId} deleted from Manager"}, status=status.HTTP_200_OK)
+        except Exception as ex:
+            return Response({"error":f"User Not Found {str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
+
+
+
+class DeliveryCrewGroupViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = [ISMANAGERONLY,]
+
+    def initialize_request(self, request, *args, **kwargs):
+        self.action = self.action_map.get(request.method.lower())
+        return super().initialize_request(request, *args, **kwargs)
+    
+    @action(detail=False, methods=['get'], url_path='groups/delivery-crew/users/')
+    def get_all_delivery_crew(self, request):
+        users = User.objects.filter(groups__name='Delivery crew')
+        serialized_users = UserSerializer(users, many=True)
+        return Response(serialized_users.data, status=status.HTTP_200_OK)
+    @action(detail=False, methods=['post'], url_path='groups/delivery-crew/users/')
+    def add_user_to_delivery_crew(self,request):
+        try:
+            user_serializer = UserSerializer(data=request.data)
+            if not user_serializer.is_valid():
+               return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            user = User.objects.get(username=user_serializer.validated_data['username'])
+            delivery_crew = Group.objects.get(name='Delivery crew') 
+            delivery_crew.user_set.add(user)
+            delivery_crew.save()
+            user_json = UserSerializer(user)
+            return Response(user_json.data, status=status.HTTP_201_CREATED)
+        except Exception as ex:
+            return Response({"error":f"User Not Found :{str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
+        
+    @action(detail=True, methods=['delete'], url_path='groups/delivery-crew//users/')
+    def delete_user_from_delivery_crew(self, request,userId=None):
+        try:
+            user = User.objects.get(pk=userId)
+            delivery_crew = Group.objects.get(name='Delivery crew') 
+            delivery_crew.user_set.remove(user)
+            return Response({"message":f"User with id:{userId} deleted from delivery crew"}, status=status.HTTP_200_OK)
+        except Exception as ex:
+            return Response({"error":f"User Not Found {str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
+
+        
