@@ -219,7 +219,7 @@ class DeliveryCrewGroupViewSet(viewsets.ModelViewSet):
         except Exception as ex:
             return Response({"error":f"User Not Found :{str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
         
-    @action(detail=True, methods=['delete'], url_path='groups/delivery-crew//users/')
+    @action(detail=True, methods=['delete'], url_path='groups/delivery-crew/users/')
     def delete_user_from_delivery_crew(self, request,userId=None):
         try:
             user = User.objects.get(pk=userId)
@@ -229,4 +229,48 @@ class DeliveryCrewGroupViewSet(viewsets.ModelViewSet):
         except Exception as ex:
             return Response({"error":f"User Not Found {str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
 
-        
+
+class CartMenuItemsViewSet(viewsets.ModelViewSet):
+    queryset = Cart.objects.all().only('menuitem').distinct()
+    # queryset = Cart.objects.all()
+    serializer_class = CartSerializer
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = [ISCUSTOMER,]
+    @action(detail=False, methods=['get'], url_path='cart/menu-items/')
+    def get_all_menu_items(self, request):
+        try:
+            items = Cart.objects.filter(user_id = request.user.pk).only('menuitem').distinct()
+            serialized_items = CartSerializer(items, many=True)
+            return Response(serialized_items.data, status=status.HTTP_200_OK)
+        except Exception as ex:
+            return Response({"error":f"User Not Found {str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
+    @action(detail=False, methods=['get'], url_path='cart/menu-items/')
+    def get_all_menu_items(self, request):
+        try:
+            items = Cart.objects.filter(user_id = request.user.pk).only('menuitem').distinct()
+            serialized_items = CartSerializer(items, many=True)
+            return Response(serialized_items.data, status=status.HTTP_200_OK)
+        except Exception as ex:
+            return Response({"error":f"User Not Found {str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
+    @action(detail=False, methods=['post'], url_path='cart/menu-items/')
+    def add_item_to_cart(self,request):
+        try:
+            cart_serializer = CartSerializer(data=request.data)
+            if not cart_serializer.is_valid():
+               return Response(cart_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            menu_item = MenuItem.objects.get(pk=cart_serializer.validated_data['menu_item_id'])
+            user = User.objects.get(pk=request.user.id)
+            cart = Cart.objects.create(menuitem=menu_item , user=user , quantity = cart_serializer.validated_data['quantity']
+                                       ,price = cart_serializer.validated_data['price'],unit_price = cart_serializer.validated_data['unit_price'])
+            cart_json = CartSerializer(cart) 
+            return Response(cart_json.data, status=status.HTTP_201_CREATED)
+        except Exception as ex:
+            return Response({"error":f"Check your data :{str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
+    @action(detail=True, methods=['delete'], url_path='cart/menu-items/')
+    def delete_items_from_cart(self, request):
+        try:
+            user = User.objects.get(pk=request.user.id)
+            Cart.objects.filter(user=user).delete()
+            return Response({"message":f"items for User with id:{user.id} deleted from cart"}, status=status.HTTP_200_OK)
+        except Exception as ex:
+            return Response({"error":f"User Not Found {str(ex)}"}, status=status.HTTP_404_NOT_FOUND)

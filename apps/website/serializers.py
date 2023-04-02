@@ -37,5 +37,38 @@ class MenuItemSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'category_item': {'read_only': True},
             'category_id': {'min_value': 1},
-                        'price': {'min_value': 2},
+            'price': {'min_value': 2},
+        }
+
+
+
+
+
+class CartSerializer(serializers.ModelSerializer):
+    menu_item = MenuItemSerializer(source='menuitem', required=False)
+    menu_item_id = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = Cart
+        fields = ('id', 'quantity', 'menu_item',
+                  'unit_price', 'price', 'menu_item_id')
+        extra_kwargs = {
+            'menu_item': {'read_only': True},
+            'menu_item_id': {'min_value': 1},
+            'price': {'min_value': 2},
+        }
+
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    user_ordered = MenuItemSerializer(source='user', required=False)
+    delivery_crew_assigned = MenuItemSerializer(source='delivery_crew', required=False)
+    class Meta:
+        model = Order
+        fields = ('id', 'user_ordered', 'delivery_crew_assigned',
+                  'status', 'total', 'date')
+        extra_kwargs = {
+            'user_ordered': {'read_only': True},
+            'total': {'min_value': 2},
+            'delivery_crew_assigned': {'read_only': True},
         }

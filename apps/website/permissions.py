@@ -23,17 +23,21 @@ class ISDELIVERYCREWORCUSTOMER(BasePermission):
     SAFE_METHODS = ["GET", "HEAD", "OPTIONS"]
 
     def has_permission(self, request, view) -> bool:
-        token_json = request.META.get('HTTP_AUTHORIZATION', '')
-        token = token_json.split(' ')[1]
-        if token:
-            user = Token.objects.get(key=token)
-            if request.method in self.SAFE_METHODS and is_in_group(
+        try:
+            token_json = request.META.get('HTTP_AUTHORIZATION', '')
+            token = token_json.split(' ')[1]
+            if token:
+               user = Token.objects.get(key=token)
+               if request.method in self.SAFE_METHODS and is_in_group(
                     user.user, 'Delivery crew') or user.user.groups.count() == 0:
-                return True
+                    return True
+               else:
+                   return False
             else:
-                return False
-        else:
+               return False
+        except Exception as ex:
             return False
+        
 
 
 class ISDELIVERYCREW(BasePermission):
@@ -44,17 +48,21 @@ class ISDELIVERYCREW(BasePermission):
     SAFE_METHODS = ["GET", "HEAD", "OPTIONS", "POST"]
 
     def has_permission(self, request, view) -> bool:
-        token_json = request.META.get('HTTP_AUTHORIZATION', '')
-        token = token_json.split(' ')[1]
-        if token:
-            user = Token.objects.get(key=token)
-            return (
+        try:
+            token_json = request.META.get('HTTP_AUTHORIZATION', '')
+            token = token_json.split(' ')[1]
+            if token:
+              user = Token.objects.get(key=token)
+              return (
                 request.method in self.SAFE_METHODS and is_in_group(
                     user.user, 'Delivery crew')
             )
-        else:
+            else:
+                return False
+        except Exception as ex:
             return False
 
+ 
 
 class ISMANAGERONLY(BasePermission):
     """
@@ -65,15 +73,18 @@ class ISMANAGERONLY(BasePermission):
                     "PATCH", "DELETE",  "HEAD", "OPTIONS"]
 
     def has_permission(self, request, view) -> bool:
-        token_json = request.META.get('HTTP_AUTHORIZATION', '')
-        token = token_json.split(' ')[1]
-        if token:
-            user = Token.objects.get(key=token)
-            return (
+        try:
+            token_json = request.META.get('HTTP_AUTHORIZATION', '')
+            token = token_json.split(' ')[1]
+            if token:
+               user = Token.objects.get(key=token)
+               return (
                 request.method in self.SAFE_METHODS and is_in_group(
                     user.user, 'Manager')
             )
-        else:
+            else:
+              return False
+        except Exception as ex:
             return False
 
 
@@ -85,12 +96,15 @@ class ISCUSTOMER(BasePermission):
     SAFE_METHODS = ["GET", "POST", "DELETE",  "HEAD", "OPTIONS"]
 
     def has_permission(self, request, view) -> bool:
-        token_json = request.META.get('HTTP_AUTHORIZATION', '')
-        token = token_json.split(' ')[1]
-        if token:
-            user = Token.objects.get(key=token)
-            return (
+        try:
+            token_json = request.META.get('HTTP_AUTHORIZATION', '')
+            token = token_json.split(' ')[1]
+            if token:
+               user = Token.objects.get(key=token)
+               return (
                 request.method in self.SAFE_METHODS and user.user.groups.count() == 0
             )
-        else:
+            else:
+              return False
+        except Exception as ex:
             return False
