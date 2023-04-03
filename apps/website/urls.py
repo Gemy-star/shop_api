@@ -29,8 +29,14 @@ cart_items = CartMenuItemsViewSet.as_view({
     'delete': 'delete_items_from_cart',
     'post':'add_item_to_cart'
 })
-
-
+orders = OrderViewSet.as_view({
+    'get': 'get_all_orders',
+    'post': 'post_order'
+})
+orders_pk = OrderViewSet.as_view({
+    'delete': 'delete_order',
+    'put':'put_order'
+})
 manager_users = ManagerGroupViewSet.as_view({
     'get': 'get_all_managers',
     'post': 'add_user_to_manager'
@@ -60,5 +66,7 @@ urlpatterns = [
     path('groups/delivery-crew/users', delivery_crew_users, name='delivery-crew-users'),
     path('groups/delivery-crew/users/<userId>', delivery_crew_userspk, name='delivery-crew-users-pk'),
     path('cart/menu-items', cart_items, name='cart-items'),
+    path('orders/', orders, name='orders'),
+    path('orders/<orderId>', orders_pk, name='orders'),
 
 ]

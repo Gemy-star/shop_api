@@ -63,12 +63,64 @@ class CartSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     user_ordered = MenuItemSerializer(source='user', required=False)
     delivery_crew_assigned = MenuItemSerializer(source='delivery_crew', required=False)
+    delivery_crew_id = serializers.IntegerField(write_only=True)
     class Meta:
         model = Order
         fields = ('id', 'user_ordered', 'delivery_crew_assigned',
-                  'status', 'total', 'date')
+                  'status', 'total', 'date','delivery_crew_id')
         extra_kwargs = {
             'user_ordered': {'read_only': True},
             'total': {'min_value': 2},
             'delivery_crew_assigned': {'read_only': True},
         }
+
+
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    order_content = MenuItemSerializer(source='order', required=False)
+    menu_item = MenuItemSerializer(source='menuitem', required=False)
+    menu_item_id = serializers.IntegerField(write_only=True)
+    order_id = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = OrderItem
+        fields = ('id', 'order_content', 'menu_item',
+                  'unit_price', 'price','order_id','menu_item_id')
+        extra_kwargs = {
+            'order_content': {'read_only': True},
+            'unit_price': {'min_value': 2},
+            'menu_item': {'read_only': True},
+        }
+
+class OrderItemOnlySerializer(serializers.ModelSerializer):
+    order_content = MenuItemSerializer(source='order', required=False)
+    menu_item = MenuItemSerializer(source='menuitem', required=False)
+
+    class Meta:
+        model = OrderItem
+        fields = ('id', 'order_content', 'menu_item',
+                  'unit_price', 'price')
+        extra_kwargs = {
+            'order_content': {'read_only': True},
+            'unit_price': {'min_value': 2},
+            'menu_item': {'read_only': True},
+        }
+
+class OrderWithItemsSerializer(serializers.ModelSerializer):
+    user_ordered = MenuItemSerializer(source='user', required=False)
+    delivery_crew_assigned = MenuItemSerializer(source='delivery_crew', required=False)
+    order_set = OrderItemOnlySerializer(read_only=True, many=True) 
+    class Meta:
+        model = Order
+        fields = ('id', 'user_ordered', 'delivery_crew_assigned',
+                  'status', 'total', 'date','order_set')
+        extra_kwargs = {
+            'user_ordered': {'read_only': True},
+            'total': {'min_value': 2},
+            'delivery_crew_assigned': {'read_only': True},
+        }
+
+
+class DeliveryStatusSerializer(serializers.Serializer):
+    status = serializers.BooleanField(required=True)

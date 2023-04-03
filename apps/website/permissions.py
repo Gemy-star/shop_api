@@ -31,6 +31,8 @@ class ISDELIVERYCREWORCUSTOMER(BasePermission):
                if request.method in self.SAFE_METHODS and is_in_group(
                     user.user, 'Delivery crew') or user.user.groups.count() == 0:
                     return True
+               elif user.is_superuser:
+                   return True
                else:
                    return False
             else:
@@ -57,6 +59,8 @@ class ISDELIVERYCREW(BasePermission):
                 request.method in self.SAFE_METHODS and is_in_group(
                     user.user, 'Delivery crew')
             )
+            elif user.is_superuser:
+                return True
             else:
                 return False
         except Exception as ex:
@@ -82,6 +86,8 @@ class ISMANAGERONLY(BasePermission):
                 request.method in self.SAFE_METHODS and is_in_group(
                     user.user, 'Manager')
             )
+            elif user.is_superuser:
+                return True
             else:
               return False
         except Exception as ex:
@@ -104,6 +110,8 @@ class ISCUSTOMER(BasePermission):
                return (
                 request.method in self.SAFE_METHODS and user.user.groups.count() == 0
             )
+            elif user.is_superuser:
+                return True
             else:
               return False
         except Exception as ex:

@@ -9,11 +9,10 @@ from django.contrib.auth.models import User
 from rest_framework.decorators import api_view, permission_classes, action
 from django.contrib.auth import authenticate
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .permissions import *
+from apps.website.permissions import *
 from rest_framework import viewsets
 from rest_framework.authentication import TokenAuthentication
-
-
+from datetime import datetime
 @swagger_auto_schema(methods=['POST'], request_body=RegisterSerializer)
 @api_view(["POST"])
 @permission_classes((AllowAny,))
@@ -274,3 +273,64 @@ class CartMenuItemsViewSet(viewsets.ModelViewSet):
             return Response({"message":f"items for User with id:{user.id} deleted from cart"}, status=status.HTTP_200_OK)
         except Exception as ex:
             return Response({"error":f"User Not Found {str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class OrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all()
+    serializer_class = OrderWithItemsSerializer
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = [IsAuthenticated,]
+
+    def initialize_request(self, request, *args, **kwargs):
+        self.action = self.action_map.get(request.method.lower())
+        return super().initialize_request(request, *args, **kwargs)
+    @action(detail=False, methods=['get'], url_path='orders/')
+    def get_all_orders(self, request):
+        try:
+            if not is_in_group(request.user , 'Manager') and not is_in_group(request.user , 'Delivery crew'):
+                orders = Order.objects.filter(user=request.user)
+                orders_serialized = OrderWithItemsSerializer(orders,many=True)
+                return Response(orders_serialized.data, status=status.HTTP_200_OK)
+            if is_in_group(request.user , 'Manager'):
+                orders = Order.objects.all()
+                orders_serialized = OrderWithItemsSerializer(orders,many=True)
+                return Response(orders_serialized.data, status=status.HTTP_200_OK) 
+            if is_in_group(request.user , 'Delivery crew'):
+                orders = Order.objects.filter(delivery_crew=request.user)
+                orders_serialized = OrderWithItemsSerializer(orders,many=True)
+                return Response(orders_serialized.data, status=status.HTTP_200_OK) 
+        except Exception as ex:
+            return Response({"error":f"Error Happend {str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
+    @action(detail=False, methods=['post'], url_path='orders/')
+    def post_order(self, request):
+        try:
+            if not is_in_group(request.user , 'Manager') and not is_in_group(request.user , 'Delivery crew'):
+                cart_items = Cart.objects.filter(user=request.user)
+                order = Order.objects.create(user=request.user , total = 0 ,date = datetime.now().date() )
+                for item in cart_items:
+                    OrderItem.objects.create(order=order ,menuitem = item.menuitem , unit_price = item.unit_price , price = item.price)
+                cart_items.delete()
+        except Exception as ex:
+            return Response({"error":f"Error Happend {str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
+    @action(detail=True, methods=['delete'],url_path='orders/')
+    def delete_order(self, request,orderId=None):
+        try:
+            if not is_in_group(request.user , 'Manager') and not is_in_group(request.user , 'Delivery crew'):
+                Order.objects.get(pk=orderId).delete()
+                return Response({"message":f"Order with {orderId} had been Deleted "} , status=status.HTTP_200_OK)
+        except Exception as ex:
+            return Response({"error":f"No Order with {orderId}{str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
+    @swagger_auto_schema(methods=['PUT'], request_body=DeliveryStatusSerializer)
+    @action(detail=True, methods=['put'],url_path='orders/')
+    def put_order(self, request,orderId=None):
+        try:
+            if is_in_group(request.user , 'Delivery crew'):
+                status_data = DeliveryStatusSerializer(request.data)
+                if not status_data.is_valid():
+                    return Response(status_data.errors, status=status.HTTP_400_BAD_REQUEST)
+                order = Order.objects.get(pk=orderId)
+                order.status = status_data.validated_data['status']
+                order.save()
+                return Response({"message":f"Order with {orderId} had been Updated "} , status=status.HTTP_200_OK)
+        except Exception as ex:
+            return Response({"error":f"No Order with {orderId}{str(ex)}"}, status=status.HTTP_404_NOT_FOUND)
